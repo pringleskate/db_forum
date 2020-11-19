@@ -8,7 +8,6 @@ import (
 )
 
 
-
 func Router(e *echo.Echo, forum forumHandler.Handler, profile profileHandler.Handler, service serviceHandler.Handler) {
 	e.POST("/forum/create", forum.ForumCreate)
 	e.POST("/forum/:slug/create", forum.ThreadCreate)
