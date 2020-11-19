@@ -4,8 +4,10 @@ import (
 	"github.com/keithzetterstrom/db_forum/internal/models"
 	"github.com/keithzetterstrom/db_forum/internal/services/forum"
 	"github.com/labstack/echo"
+	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type Handler interface {
@@ -42,23 +44,23 @@ func (h *handler) ForumCreate(c echo.Context) error {
 		return err
 	}
 
-	_, err := h.forumService.CreateForum(*forumInput)
+	forumRequest, err := h.forumService.CreateForum(*forumInput)
 	if err != nil {
 
 	}
 
-	return nil
+	return c.JSON(http.StatusCreated, forumRequest)
 }
 
 func (h *handler) ForumGet(c echo.Context) error {
 	slag := c.Param("slug")
 
-	_, err := h.forumService.GetForum(slag)
+	forumRequest, err := h.forumService.GetForum(slag)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusCreated, forumRequest)
 }
 
 func (h *handler) ForumThreadsGet(c echo.Context) error {
@@ -68,12 +70,12 @@ func (h *handler) ForumThreadsGet(c echo.Context) error {
 		return err
 	}
 
-	_, err = h.forumService.GetForumThreads(slag, params)
+	threads, err := h.forumService.GetForumThreads(slag, params)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, threads)
 }
 
 func (h *handler) ForumUsersGet(c echo.Context) error {
@@ -83,12 +85,12 @@ func (h *handler) ForumUsersGet(c echo.Context) error {
 		return err
 	}
 
-	_, err = h.forumService.GetForumUsers(slag, params)
+	users, err := h.forumService.GetForumUsers(slag, params)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, users)
 }
 
 
@@ -100,23 +102,23 @@ func (h *handler) ThreadCreate(c echo.Context) error {
 
 	threadInput.ForumSlug = c.Param("slug")
 
-	_, err := h.forumService.CreateThread(*threadInput)
+	thread, err := h.forumService.CreateThread(*threadInput)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusCreated, thread)
 }
 
 func (h *handler) ThreadGet(c echo.Context) error {
 	slugOrID := c.Param("slug_or_id")
 
-	_, err := h.forumService.GetThread(slugOrID)
+	thread, err := h.forumService.GetThread(slugOrID)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, thread)
 }
 
 func (h *handler) ThreadUpdate(c echo.Context) error {
@@ -127,12 +129,12 @@ func (h *handler) ThreadUpdate(c echo.Context) error {
 
 	threadInput.SlagOrID = c.Param("slug_or_id")
 
-	_, err := h.forumService.UpdateThread(*threadInput)
+	thread, err := h.forumService.UpdateThread(*threadInput)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, thread)
 }
 
 func (h *handler) ThreadPostsGet(c echo.Context) error {
@@ -142,12 +144,12 @@ func (h *handler) ThreadPostsGet(c echo.Context) error {
 		return err
 	}
 
-	_, err = h.forumService.GetThreadPosts(slagOrID, params)
+	posts, err := h.forumService.GetThreadPosts(slagOrID, params)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, posts)
 }
 
 
@@ -159,17 +161,16 @@ func (h *handler) ThreadVote(c echo.Context) error {
 
 	voteInput.SlagOrID = c.Param("slug_or_id")
 
-	_, err := h.forumService.ThreadVote(*voteInput)
+	thread, err := h.forumService.ThreadVote(*voteInput)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, thread)
 }
 
 
 func (h *handler) PostCreate(c echo.Context) error {
-	//TODO - приходит список создаваемых постов
 	postInput := make([]models.Post, 0)
 	if err := c.Bind(postInput); err != nil {
 		return err
@@ -177,27 +178,28 @@ func (h *handler) PostCreate(c echo.Context) error {
 
 	slagOrID := c.Param("slug_or_id")
 
-	_, err := h.forumService.CreatePost(slagOrID, postInput)
+	post, err := h.forumService.CreatePost(slagOrID, postInput)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, post)
 }
 
 func (h *handler) PostGet(c echo.Context) error {
-	//TODO - есть параметр очернеди related (array [string])
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return err
 	}
 
-	_, err = h.forumService.GetPost(id)
-	if err != nil {
+	related := relatedParse(c.QueryParam("related"))
 
+	post, err := h.forumService.GetPost(id, related)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, post)
 }
 
 func (h *handler) PostUpdate(c echo.Context) (err error) {
@@ -211,12 +213,12 @@ func (h *handler) PostUpdate(c echo.Context) (err error) {
 		return err
 	}
 
-	_, err = h.forumService.UpdatePost(*postInput)
+	post, err := h.forumService.UpdatePost(*postInput)
 	if err != nil {
-
+		return err
 	}
 
-	return nil
+	return c.JSON(http.StatusOK, post)
 }
 
 func getForumQueryParams(params url.Values) (values models.ForumQueryParams, err error) {
@@ -238,4 +240,10 @@ func getThreadQueryParams(params url.Values) (values models.ThreadQueryParams, e
 		return models.ThreadQueryParams{}, err
 	}
 	return values, nil
+}
+
+func relatedParse(related string) []string {
+	related = strings.ReplaceAll(related, "[", "")
+	related = strings.ReplaceAll(related, "]", "")
+	return strings.Split(related, ",")
 }
