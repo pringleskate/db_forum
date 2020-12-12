@@ -127,7 +127,7 @@ func (h *handler) ThreadUpdate(c echo.Context) error {
 		return err
 	}
 
-	threadInput.SlagOrID = c.Param("slug_or_id")
+	threadInput.ThreadSlagOrID = isItSlugOrID(c.Param("slug_or_id"))
 
 	thread, err := h.forumService.UpdateThread(*threadInput)
 	if err != nil {
@@ -138,13 +138,14 @@ func (h *handler) ThreadUpdate(c echo.Context) error {
 }
 
 func (h *handler) ThreadPostsGet(c echo.Context) error {
-	slagOrID := c.Param("slug_or_id")
 	params, err := getThreadQueryParams(c.QueryParams())
 	if err != nil {
 		return err
 	}
 
-	posts, err := h.forumService.GetThreadPosts(slagOrID, params)
+	params.ThreadSlagOrID = isItSlugOrID(c.Param("slug_or_id"))
+
+	posts, err := h.forumService.GetThreadPosts(params)
 	if err != nil {
 		return err
 	}
@@ -176,7 +177,7 @@ func (h *handler) PostCreate(c echo.Context) error {
 		return err
 	}
 
-	slagOrID := c.Param("slug_or_id")
+	slagOrID := isItSlugOrID(c.Param("slug_or_id"))
 
 	post, err := h.forumService.CreatePost(slagOrID, postInput)
 	if err != nil {
@@ -208,7 +209,7 @@ func (h *handler) PostUpdate(c echo.Context) (err error) {
 		return err
 	}
 
-	postInput.ID , err = strconv.ParseInt(c.Param("id"), 10, 64)
+	postInput.ID , err = strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return err
 	}
@@ -246,4 +247,14 @@ func relatedParse(related string) []string {
 	related = strings.ReplaceAll(related, "[", "")
 	related = strings.ReplaceAll(related, "]", "")
 	return strings.Split(related, ",")
+}
+
+func isItSlugOrID(slagOrID string) (output models.ThreadSlagOrID) {
+	id, err := strconv.Atoi(slagOrID)
+	if err != nil {
+		output.ThreadSlug = slagOrID
+		return output
+	}
+	output.ThreadID = id
+	return output
 }

@@ -13,11 +13,11 @@ type Service interface {
 	CreateThread(threadInput models.Thread) (thread models.Thread, err error)
 	GetThread(slagOrID string) (thread models.Thread, err error)
 	UpdateThread(threadInput models.ThreadUpdate) (thread models.Thread, err error)
-	GetThreadPosts(slagOrID string, params models.ThreadQueryParams) (threads []models.Post, err error)
+	GetThreadPosts(params models.ThreadQueryParams) (threads []models.Post, err error)
 
 	ThreadVote(voteInput models.Vote) (thread models.Thread, err error)
 
-	CreatePost(slagOrID string, postInput []models.Post) (posts []models.Post, err error)
+	CreatePost(slagOrID models.ThreadSlagOrID, postInput []models.Post) (posts []models.Post, err error)
 	GetPost(id int64, related []string) (post models.Post, err error)
 	UpdatePost(postInput models.PostUpdate) (post models.Post, err error)
 }
