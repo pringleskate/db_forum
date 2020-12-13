@@ -52,7 +52,7 @@ func (h *handler) ProfileGet(c echo.Context) error {
 }
 
 func (h *handler) ProfileUpdate(c echo.Context) error {
-	userInput := new(models.UsersUpdate)
+	userInput := new(models.User)
 	if err := c.Bind(userInput); err != nil {
 		return err
 	}
