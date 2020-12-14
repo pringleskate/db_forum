@@ -35,7 +35,6 @@ type ThreadQueryParams struct {
 
 type Vote struct {
 	ThreadSlagOrID
-	//SlagOrID string `json:"-"`
 	Nickname string `json:"nickname"` // Идентификатор пользователя.
 	Voice    int32  `json:"voice"`    // Отданный голос.
 }
