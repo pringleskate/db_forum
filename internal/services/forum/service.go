@@ -8,7 +8,7 @@ type Service interface {
 	CreateForum(forumInput models.Forum) (forum models.Forum, err error)
 	GetForum(slug string) (forum models.Forum, err error)
 	GetForumThreads(slug string, params models.ForumQueryParams) (threads []models.Thread, err error)
-	GetForumUsers(slug string, params models.ForumQueryParams) (threads []models.User, err error)
+	GetForumUsers(slug string, params models.ForumQueryParams) (users []models.User, err error)
 
 	CreateThread(threadInput models.Thread) (thread models.Thread, err error)
 	GetThread(slagOrID string) (thread models.Thread, err error)
@@ -18,12 +18,11 @@ type Service interface {
 	ThreadVote(voteInput models.Vote) (thread models.Thread, err error)
 
 	CreatePost(slagOrID models.ThreadSlagOrID, postInput []models.Post) (posts []models.Post, err error)
-	GetPost(id int64, related []string) (post models.Post, err error)
+	GetPost(id int64, related []string) (post models.PostFull, err error)
 	UpdatePost(postInput models.PostUpdate) (post models.Post, err error)
 }
 
 type service struct {
-
 }
 
 func NewService() *service {

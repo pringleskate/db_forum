@@ -160,7 +160,7 @@ func (h *handler) ThreadVote(c echo.Context) error {
 		return err
 	}
 
-	voteInput.SlagOrID = c.Param("slug_or_id")
+	voteInput.ThreadSlagOrID = isItSlugOrID(c.Param("slug_or_id"))
 
 	thread, err := h.forumService.ThreadVote(*voteInput)
 	if err != nil {
