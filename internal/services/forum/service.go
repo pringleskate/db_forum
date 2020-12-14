@@ -11,7 +11,7 @@ type Service interface {
 	GetForumUsers(slug string, params models.ForumQueryParams) (threads []models.User, err error)
 
 	CreateThread(threadInput models.Thread) (thread models.Thread, err error)
-	GetThread(slagOrID string) (thread models.Thread, err error)
+	GetThread(slagOrID models.ThreadSlagOrID) (thread models.Thread, err error)
 	UpdateThread(threadInput models.ThreadUpdate) (thread models.Thread, err error)
 	GetThreadPosts(params models.ThreadQueryParams) (threads []models.Post, err error)
 
@@ -52,7 +52,7 @@ func (s *service) CreateThread(threadInput models.Thread) (thread models.Thread,
 	return models.Thread{}, nil
 }
 
-func (s *service) GetThread(slagOrID string) (thread models.Thread, err error) {
+func (s *service) GetThread(slagOrID models.ThreadSlagOrID) (thread models.Thread, err error) {
 	return models.Thread{}, nil
 }
 
@@ -60,7 +60,7 @@ func (s *service) UpdateThread(threadInput models.ThreadUpdate) (thread models.T
 	return models.Thread{}, nil
 }
 
-func (s *service) GetThreadPosts(slagOrID string, params models.ThreadQueryParams) (threads []models.Post, err error) {
+func (s *service) GetThreadPosts(slagOrID models.ThreadSlagOrID, params models.ThreadQueryParams) (threads []models.Post, err error) {
 	return nil, nil
 }
 
@@ -70,7 +70,7 @@ func (s *service) ThreadVote(voteInput models.Vote) (thread models.Thread, err e
 }
 
 
-func (s *service) CreatePost(slagOrID string, postInput []models.Post) (posts []models.Post, err error) {
+func (s *service) CreatePost(slagOrID models.ThreadSlagOrID, postInput []models.Post) (posts []models.Post, err error) {
 	return nil, nil
 }
 
