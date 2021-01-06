@@ -1,7 +1,7 @@
 package serviceHandler
 
 import (
-	"github.com/keithzetterstrom/db_forum/internal/services/service"
+	"github.com/keithzetterstrom/db_forum/internal/storages"
 	"github.com/labstack/echo"
 	"net/http"
 )
@@ -12,17 +12,17 @@ type Handler interface {
 }
 
 type handler struct {
-	serviceService service.Service
+	forumStorage storages.ForumStorage
 }
 
-func NewHandler(serviceService service.Service) *handler {
+func NewHandler(forumStorage storages.ForumStorage) *handler {
 	return &handler{
-		serviceService: serviceService,
+		forumStorage: forumStorage,
 	}
 }
 
 func (h *handler) ServiceClear(c echo.Context) error {
-	err := h.serviceService.ClearData()
+	err := h.forumStorage.Clear()
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func (h *handler) ServiceClear(c echo.Context) error {
 }
 
 func (h *handler) ServiceStatus(c echo.Context) error {
-	status, err := h.serviceService.ReturnStatus()
+	status, err := h.forumStorage.Status()
 	if err != nil {
 		return err
 	}
