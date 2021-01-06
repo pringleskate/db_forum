@@ -8,12 +8,14 @@ import (
 
 type ThreadStorage interface {
 	InsertThread(threadInput models.Thread) (ID int, err error)
-	UpdateThread(threadInput models.ThreadUpdate) (err error)
+	UpdateThread(threadInput models.Thread) (err error)
 	GetFullThreadBySlug(slug string) (thread models.Thread, err error)
 	GetFullThreadByID(threadID int) (thread models.Thread, err error)
 	InsertVote(voteInput models.Vote) (err error)
 	UpdateVote(voteInput models.Vote) (err error)
+	SelectVote(voteInput models.Vote) (vote models.Vote, err error)
 	GetAllThreadsByForum(params models.ForumQueryParams) (threads []models.Thread, err error)
+	UpdateVotesCount(threadID int, voice int) (err error)
 }
 
 type threadStorage struct {
@@ -32,8 +34,8 @@ func (t threadStorage) InsertThread(threadInput models.Thread) (ID int, err erro
 	return
 }
 
-func (t threadStorage) UpdateThread(threadInput models.ThreadUpdate) (err error) {
-	_, err = t.db.Exec("UPDATE thread SET message = $1, title = $2 WHERE ID = $3", threadInput.Message, threadInput.Title, threadInput.ThreadID)
+func (t threadStorage) UpdateThread(threadInput models.Thread) (err error) {
+	_, err = t.db.Exec("UPDATE thread SET message = $1, title = $2 WHERE ID = $3", threadInput.Message, threadInput.Title, threadInput.ID)
 	return
 }
 
@@ -64,9 +66,22 @@ func (t threadStorage) UpdateVote(voteInput models.Vote) (err error) {
 	_, err = t.db.Exec("UPDATE vote SET voice = $1 WHERE user_nick = $2 AND thread_id = $3", voteInput.Voice, voteInput.Nickname, voteInput.ThreadID)
 	return
 }
-//TODO заполнять в сервисах slug в params
+
+func (t threadStorage) SelectVote(voteInput models.Vote) (vote models.Vote, err error) {
+	err = t.db.QueryRow("SELECT user_nick, voice, thread_id FROM vote WHERE lower(user_nick) = lower($1) AND thread_id = $2",
+		voteInput.Nickname, voteInput.ThreadID).
+		Scan(&vote.Nickname, &vote.Voice, &vote.ThreadID)
+	return
+}
+
+func (t threadStorage) UpdateVotesCount(threadID int, voice int) (err error) {
+	_, err = t.db.Exec("UPDATE thread SET votes = votes + $1 WHERE ID = $2", voice, threadID)
+	return
+}
+
 func (t threadStorage) GetAllThreadsByForum(params models.ForumQueryParams) (threads []models.Thread, err error) {
 	var rows *pgx.Rows
+	threads = make([]models.Thread, 0)
 
 	if params.Desc {
 		if params.Since == "" {
@@ -99,7 +114,6 @@ func (t threadStorage) GetAllThreadsByForum(params models.ForumQueryParams) (thr
 		tmpThread := models.Thread{}
 		var slug sql.NullString
 
-		//ID, author, created, forum, message, slug, title, votes
 		err = rows.Scan(&tmpThread.ID, &tmpThread.Author, &tmpThread.Created, &tmpThread.Forum, &tmpThread.Message, &slug, &tmpThread.Title, &tmpThread.Votes)
 		if err != nil {
 			return

@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 type Post struct {
 	ThreadSlagOrID
 	ID       int       `json:"id,omitempty"`       // Идентификатор данного сообщения.
@@ -10,7 +8,8 @@ type Post struct {
 	Message  string    `json:"message,omitempty"`  // Собственно сообщение форума.
 	IsEdited bool      `json:"isEdited,omitempty"` // Истина, если данное сообщение было изменено.
 	Forum    string    `json:"forum,omitempty"`    // Идентификатор форума (slug) данного сообещния.
-	Created  time.Time `json:"created,omitempty"`  // Дата создания сообщения на форуме.
+//	Created  time.Time `json:"created,omitempty"`  // Дата создания сообщения на форуме.
+	Created  string `json:"created,omitempty"`
 }
 
 type PostCreate struct {

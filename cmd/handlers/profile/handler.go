@@ -33,10 +33,13 @@ func (h *handler) ProfileCreate(c echo.Context) error {
 
 	user, err := h.profileService.CreateUser(*userInput)
 	if err != nil {
-		return c.JSON(http.StatusConflict, err)
+		if http.StatusConflict == err.(models.ServError).Code {
+			return c.JSON(http.StatusConflict, user)
+		}
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
-	return c.JSON(http.StatusCreated, user)
+	return c.JSON(http.StatusCreated, user[0])
 }
 
 func (h *handler) ProfileGet(c echo.Context) error {
@@ -45,7 +48,7 @@ func (h *handler) ProfileGet(c echo.Context) error {
 
 	user, err := h.profileService.GetUser(nickname)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, err)
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -61,7 +64,7 @@ func (h *handler) ProfileUpdate(c echo.Context) error {
 
 	user, err := h.profileService.UpdateUser(*userInput)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, user)

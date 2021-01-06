@@ -5,10 +5,16 @@ type Error struct {
 }
 
 type ServError struct {
-	Code    string
+	Code    int
 	Message string
 }
 
 func (e ServError) Error() string {
-	return e.Code
+	return e.Message
 }
+
+var (
+	InternalServerError = 500
+	NotFound = 404
+	ConflictData = 409
+)

@@ -1,13 +1,18 @@
 package forumHandler
 
 import (
+	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/keithzetterstrom/db_forum/internal/models"
 	"github.com/keithzetterstrom/db_forum/internal/services/forum"
+	"github.com/keithzetterstrom/db_forum/internal/storages"
 	"github.com/labstack/echo"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Handler interface {
@@ -28,13 +33,29 @@ type Handler interface {
 	PostUpdate(c echo.Context) error
 }
 
-type handler struct {
+/*type handler struct {
 	forumService forum.Service
 }
 
 func NewHandler(forumService forum.Service) *handler {
 	return &handler{
 		forumService: forumService,
+	}
+}
+*/
+type handler struct {
+	forumService forum.Service
+	threadStorage storages.ThreadStorage
+	postStorage storages.PostStorage
+	forumStorage storages.ForumStorage
+}
+
+func NewHandler(forumService forum.Service, threadStorage storages.ThreadStorage, postStorage storages.PostStorage, forumStorage storages.ForumStorage) *handler {
+	return &handler{
+		forumService: forumService,
+		threadStorage: threadStorage,
+		postStorage: postStorage,
+		forumStorage: forumStorage,
 	}
 }
 
@@ -46,7 +67,10 @@ func (h *handler) ForumCreate(c echo.Context) error {
 
 	forumRequest, err := h.forumService.CreateForum(*forumInput)
 	if err != nil {
-
+		if http.StatusConflict == err.(models.ServError).Code {
+			return c.JSON(http.StatusConflict, forumRequest)
+		}
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusCreated, forumRequest)
@@ -57,10 +81,10 @@ func (h *handler) ForumGet(c echo.Context) error {
 
 	forumRequest, err := h.forumService.GetForum(slag)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
-	return c.JSON(http.StatusCreated, forumRequest)
+	return c.JSON(http.StatusOK, forumRequest)
 }
 
 func (h *handler) ForumThreadsGet(c echo.Context) error {
@@ -72,7 +96,7 @@ func (h *handler) ForumThreadsGet(c echo.Context) error {
 
 	threads, err := h.forumService.GetForumThreads(slag, params)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, threads)
@@ -87,7 +111,7 @@ func (h *handler) ForumUsersGet(c echo.Context) error {
 
 	users, err := h.forumService.GetForumUsers(slag, params)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, users)
@@ -100,11 +124,14 @@ func (h *handler) ThreadCreate(c echo.Context) error {
 		return err
 	}
 
-	threadInput.ForumSlug = c.Param("slug")
+	threadInput.Forum = c.Param("slug")
 
 	thread, err := h.forumService.CreateThread(*threadInput)
 	if err != nil {
-		return err
+		if http.StatusConflict == err.(models.ServError).Code {
+			return c.JSON(http.StatusConflict, thread)
+		}
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusCreated, thread)
@@ -115,7 +142,7 @@ func (h *handler) ThreadGet(c echo.Context) error {
 
 	thread, err := h.forumService.GetThread(slugOrID)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, thread)
@@ -131,7 +158,7 @@ func (h *handler) ThreadUpdate(c echo.Context) error {
 
 	thread, err := h.forumService.UpdateThread(*threadInput)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, thread)
@@ -140,6 +167,7 @@ func (h *handler) ThreadUpdate(c echo.Context) error {
 func (h *handler) ThreadPostsGet(c echo.Context) error {
 	params, err := getThreadQueryParams(c.QueryParams())
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
@@ -147,7 +175,7 @@ func (h *handler) ThreadPostsGet(c echo.Context) error {
 
 	posts, err := h.forumService.GetThreadPosts(params)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, posts)
@@ -164,27 +192,83 @@ func (h *handler) ThreadVote(c echo.Context) error {
 
 	thread, err := h.forumService.ThreadVote(*voteInput)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, thread)
 }
 
 
-func (h *handler) PostCreate(c echo.Context) error {
-	postInput := make([]models.Post, 0)
+/*func (h *handler) PostCreate(c echo.Context) error {
+	postInput := new([]models.Post)
+
 	if err := c.Bind(postInput); err != nil {
 		return err
 	}
 
 	slagOrID := isItSlugOrID(c.Param("slug_or_id"))
 
-	post, err := h.forumService.CreatePost(slagOrID, postInput)
+	post, err := h.forumService.CreatePosts(slagOrID, *postInput)
+	if err != nil {
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
+	}
+
+	return c.JSON(http.StatusCreated, post)
+}*/
+
+func (h *handler) PostCreate(c echo.Context) error {
+//	postInput := new([]models.Post)
+	postInput := make([]models.Post, 0)
+
+	err := c.Bind(&postInput)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, post)
+	slagOrID := isItSlugOrID(c.Param("slug_or_id"))
+	thread := models.Thread{}
+
+	if slagOrID.ThreadSlug != "" {
+		thread, err = h.threadStorage.GetFullThreadBySlug(slagOrID.ThreadSlug)
+	} else {
+		thread, err = h.threadStorage.GetFullThreadByID(slagOrID.ThreadID)
+	}
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.JSON(http.StatusNotFound, models.ServError{Message: "Can't find thread"})
+		}
+		log.Print(err)
+		return c.JSON(http.StatusInternalServerError, models.ServError{ Code: models.InternalServerError })
+	}
+
+	if len(postInput) == 0 {
+		return c.JSON(http.StatusCreated, postInput)
+	}
+	createdTime := time.Now().Format(time.RFC3339Nano)
+	forum := thread.Forum
+
+	posts, err :=  h.postStorage.CreatePosts(thread, forum, createdTime, postInput)
+	if err != nil {
+		if err.Error() == "404" {
+			return c.JSON(http.StatusNotFound, models.ServError{Message: "Can't find post author by nickname:"})
+
+			//return posts, models.ServError{Code: models.NotFound}
+		}
+		fmt.Println(err)
+		return c.JSON(http.StatusConflict, models.ServError{Message: "Parent post was created in another thread"})
+
+		//return posts, models.ServError{ Code: models.ConflictData }
+	}
+
+	err = h.forumStorage.UpdatePostsCount(forum, len(posts))
+	if err != nil {
+		log.Print(err)
+		return c.JSON(http.StatusInternalServerError, models.ServError{ Code: models.InternalServerError })
+
+		//return posts, models.ServError{ Code: models.InternalServerError }
+	}
+
+	return c.JSON(http.StatusCreated, posts)
 }
 
 func (h *handler) PostGet(c echo.Context) error {
@@ -197,7 +281,7 @@ func (h *handler) PostGet(c echo.Context) error {
 
 	post, err := h.forumService.GetPost(id, related)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, post)
@@ -216,27 +300,51 @@ func (h *handler) PostUpdate(c echo.Context) (err error) {
 
 	post, err := h.forumService.UpdatePost(*postInput)
 	if err != nil {
-		return err
+		return c.JSON(err.(models.ServError).Code, models.Error{Message: err.(models.ServError).Message})
 	}
 
 	return c.JSON(http.StatusOK, post)
 }
 
 func getForumQueryParams(params url.Values) (values models.ForumQueryParams, err error) {
-	values.Limit, err = strconv.Atoi(params.Get("limit"))
-	values.Since = params.Get("since")
-	values.Desc, err = strconv.ParseBool(params.Get("desc"))
-	if err != nil {
-		return models.ForumQueryParams{}, err
+	limit := params.Get("limit")
+	if limit != "" {
+		values.Limit, err = strconv.Atoi(limit)
 	}
+
+	values.Since = params.Get("since")
+
+	desc := params.Get("desc")
+	if desc != "" {
+		values.Desc, err = strconv.ParseBool(desc)
+		if err != nil {
+			return models.ForumQueryParams{}, err
+		}
+	}
+
 	return values, nil
 }
 
 func getThreadQueryParams(params url.Values) (values models.ThreadQueryParams, err error) {
-	values.Limit, err = strconv.Atoi(params.Get("limit"))
-	values.Since = params.Get("since")
+	limit := params.Get("limit")
+	if limit != "" {
+		values.Limit, err = strconv.Atoi(limit)
+	}
+
+	since := params.Get("since")
+	if since != "" {
+		values.Since, err = strconv.Atoi(since)
+	}
+
 	values.Sort = params.Get("sort")
-	values.Desc, err = strconv.ParseBool(params.Get("desc"))
+	desc := params.Get("desc")
+	if desc != "" {
+		values.Desc, err = strconv.ParseBool(desc)
+		if err != nil {
+			return models.ThreadQueryParams{}, err
+		}
+	}
+
 	if err != nil {
 		return models.ThreadQueryParams{}, err
 	}

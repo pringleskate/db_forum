@@ -7,9 +7,11 @@ import (
 
 type UserStorage interface {
 	InsertUser(userInput models.User) (err error)
-	GetFullUser(nickname string) (user models.User, err error)
+	GetFullUserByNickname(nickname string) (user models.User, err error)
+	GetFullUserByEmail(email string) (user models.User, err error)
 	UpdateUser(userInput models.User) (err error)
 	GetAllUsersByForum(params models.ForumQueryParams) (users []models.User, err error)
+	GetUserNickname(user string) (nickname string, err error)
 }
 
 type userStorage struct {
@@ -28,8 +30,14 @@ func (u userStorage) InsertUser(userInput models.User) (err error){
 	return
 }
 
-func (u userStorage) GetFullUser(nickname string) (user models.User, err error) {
+func (u userStorage) GetFullUserByNickname(nickname string) (user models.User, err error) {
 	err = u.db.QueryRow("SELECT nick_name, email, full_name, about FROM users WHERE lower(nick_name) = lower($1)", nickname).
+		Scan(&user.Nickname, &user.Email, &user.FullName, &user.About)
+	return
+}
+
+func (u userStorage) GetFullUserByEmail(email string) (user models.User, err error) {
+	err = u.db.QueryRow("SELECT nick_name, email, full_name, about FROM users WHERE lower(email) = lower($1)", email).
 		Scan(&user.Nickname, &user.Email, &user.FullName, &user.About)
 	return
 }
@@ -42,30 +50,30 @@ func (u userStorage) UpdateUser(userInput models.User) (err error) {
 
 func (u userStorage) GetAllUsersByForum(params models.ForumQueryParams) (users []models.User, err error) {
 	var rows *pgx.Rows
+	users = make([]models.User, 0)
 
 	if params.Desc {
 		if params.Since == "" {
-			//	selectWithDesc = "SELECT u.nickname, u.fullname, u.about, u.email FROM forum_users fu JOIN users u ON fu.userID = u.ID WHERE fu.forumID = $1 ORDER BY u.nickname DESC LIMIT $2"
 			rows, err = u.db.Query(`SELECT u.nick_name, u.email, u.full_name, u.about FROM users u
-				JOIN forum_users fu ON fu.user = u.nick_name
+				JOIN forum_users fu ON fu.user_nick = u.nick_name
 				WHERE lower(fu.forum) = lower($1) ORDER BY lower(u.nick_name) COLLATE "C" DESC LIMIT $2`,
 				params.Slug, params.Limit)
 		} else {
 			rows, err =  u.db.Query(`SELECT u.nick_name, u.email, u.full_name, u.about FROM users u 
-				JOIN forum_users fu ON fu.user = u.nick_name
-				WHERE lower(fu.forum) = lower($1) AND lower(u.nick_name) < lower($3) ORDER BY lower(u.nick_name) COLLATE "C" DESC LIMIT $2`,
+				JOIN forum_users fu ON fu.user_nick = u.nick_name
+				WHERE lower(fu.forum) = lower($1) AND lower(u.nick_name) < lower($3) COLLATE "POSIX" ORDER BY lower(u.nick_name) COLLATE "POSIX" DESC LIMIT $2`,
 				params.Slug, params.Limit, params.Since)
 		}
 	} else {
 		if params.Since == "" {
 			rows, err = u.db.Query(`SELECT u.nick_name, u.email, u.full_name, u.about FROM users u
-				JOIN forum_users fu ON fu.user = u.nick_name
-				WHERE lower(fu.forum) = lower($1) ORDER BY lower(u.nick_name) COLLATE "C" LIMIT $2`,
+				JOIN forum_users fu ON fu.user_nick = u.nick_name
+				WHERE lower(fu.forum) = lower($1) ORDER BY lower(u.nick_name) COLLATE "C" ASC LIMIT $2`,
 				params.Slug, params.Limit)
 		} else {
 			rows, err =  u.db.Query(`SELECT u.nick_name, u.email, u.full_name, u.about FROM users u 
-				JOIN forum_users fu ON fu.user = u.nick_name
-				WHERE lower(fu.forum) = lower($1) AND lower(u.nick_name) < lower($3) ORDER BY lower(u.nick_name) COLLATE "C" LIMIT $2`,
+				JOIN forum_users fu ON fu.user_nick = u.nick_name
+				WHERE lower(fu.forum) = lower($1) AND lower(u.nick_name) > lower($3) COLLATE "POSIX" ORDER BY lower(u.nick_name) COLLATE "POSIX" ASC LIMIT $2`,
 				params.Slug, params.Limit, params.Since)
 		}
 	}
@@ -87,5 +95,10 @@ func (u userStorage) GetAllUsersByForum(params models.ForumQueryParams) (users [
 		users = append(users, user)
 	}
 
+	return
+}
+
+func (u userStorage) GetUserNickname(user string) (nickname string, err error) {
+	err = u.db.QueryRow("SELECT nick_name FROM users WHERE lower(nick_name) = lower($1)", user).Scan(&nickname)
 	return
 }
