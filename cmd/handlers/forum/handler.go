@@ -458,7 +458,6 @@ func (h *handler) PostCreate(c echo.Context) error {
 		if err.Error() == "404" {
 			return c.JSON(http.StatusNotFound, models.ServError{Message: "Can't find post author by nickname:"})
 			}
-		fmt.Println(err)
 		return c.JSON(http.StatusConflict, models.ServError{Message: "Parent post was created in another thread"})
 	}
 

@@ -40,16 +40,16 @@ func (p postStorage) CreatePosts(thread models.Thread, forum string, created str
 		).Scan(&author)
 		if err != nil {
 			return nil, errors.New("404")
-			//return nil, err
 		}
+
 		sqlQuery := `
-		INSERT INTO public.forum_users (forum, user_nick)
+		INSERT INTO forum_users (forum, user_nick)
 		VALUES ($1,$2)`
 		_, _ = p.db.Exec(sqlQuery, forum, author)
 
 		if post.Parent == 0 {
-			sqlStr += "(nextval('public.post_id_seq'::regclass), ?, ?, ?, ?, ?, ?, " +
-				"ARRAY[currval(pg_get_serial_sequence('public.post', 'id'))::INTEGER]),"
+			sqlStr += "(nextval('post_id_seq'::regclass), ?, ?, ?, ?, ?, ?, " +
+				"ARRAY[currval(pg_get_serial_sequence('post', 'id'))::INTEGER]),"
 			vals = append(vals, post.Parent, thread.ID, thread.Forum, post.Author, created, post.Message)
 		} else {
 			var parentThreadId int32
@@ -63,10 +63,9 @@ func (p postStorage) CreatePosts(thread models.Thread, forum string, created str
 				return nil, errors.New("Parent post was created in another thread")
 			}
 
-			sqlStr += " (nextval('public.post_id_seq'::regclass), ?, ?, ?, ?, ?, ?, " +
+			sqlStr += " (nextval('post_id_seq'::regclass), ?, ?, ?, ?, ?, ?, " +
 				"(SELECT post.path FROM post WHERE post.id = ? AND post.thread = ?) || " +
-				"currval(pg_get_serial_sequence('public.post', 'id'))::INTEGER),"
-
+				"currval(pg_get_serial_sequence('post', 'id'))::INTEGER),"
 			vals = append(vals, post.Parent, thread.ID, thread.Forum, post.Author, created, post.Message, post.Parent, thread.ID)
 		}
 
@@ -183,23 +182,6 @@ func (p postStorage) GetAllPostsByThread(params models.ThreadQueryParams) (posts
 			}
 		}
 	case "tree":
-		/*
-		conditionSign := ">"
-			if desc == "desc" {
-				conditionSign = "<"
-		}
-
-		orderString := fmt.Sprintf(" ORDER BY p.path[1] %s, p.path %s ", desc, desc)
-		sqlQuery = "SELECT p.id, p.parent, p.thread, p.forum, p.author, p.created, p.message, p.is_edited, p.path " +
-			"FROM public.post as p " +
-			"WHERE p.thread = $1 "
-		if since != "" {
-			sqlQuery += fmt.Sprintf(" AND p.path %s (SELECT p.path FROM public.post as p WHERE p.id = %s) ", conditionSign, since)
-		}
-		sqlQuery += orderString
-		sqlQuery += fmt.Sprintf("LIMIT %s", limit)
-		*/
-	//	if params.Desc {
 			conditionSign := ">"
 
 			var desc string
@@ -220,41 +202,7 @@ func (p postStorage) GetAllPostsByThread(params models.ThreadQueryParams) (posts
 			sqlQuery += orderString
 			sqlQuery += fmt.Sprintf("LIMIT %s", strconv.Itoa(params.Limit))
 
-			/*orderString := fmt.Sprintf(" ORDER BY p.path[1] %s, p.path %s ", "desc", "desc")
-			sqlQuery := "SELECT p.id, p.parent, p.thread, p.forum, p.author, p.created, p.message, p.is_edited, p.path " +
-				"FROM public.post as p " +
-				"WHERE p.thread = $1 "
-			if params.Since != 0 {
-				sqlQuery += fmt.Sprintf(" AND p.path %s (SELECT p.path FROM public.post as p WHERE p.id = %s) ", conditionSign, params.Since)
-			}
-			sqlQuery += orderString
-			sqlQuery += fmt.Sprintf("LIMIT %s", params.Limit)*/
-
 			rows, err = p.db.Query(sqlQuery, params.ThreadID)
-			/*if params.Since == 0 {
-				rows, err = p.db.Query("SELECT p.id, p.author, p.created, p.is_edited, p.message, p.parent, p.thread, p.forum " +
-					"FROM post p WHERE p.thread = $1" +
-					"ORDER BY p.path DESC LIMIT $2",
-					params.ThreadID, params.Limit)
-			} else {
-				rows, err = p.db.Query("SELECT p.id, p.author, p.created, p.is_edited, p.message, p.parent, p.thread, p.forum " +
-					"FROM post p WHERE p.thread = $1 and (p.path < (SELECT p2.path from post p2 where p2.id = $2)) " +
-					"ORDER BY p.path DESC LIMIT $3",
-					params.ThreadID, params.Since, params.Limit)
-			}*/
-			/*} else {
-				if params.Since == 0 {
-					rows, err = p.db.Query("SELECT p.id, p.author, p.created, p.is_edited, p.message, p.parent, p.thread, p.forum " +
-						"FROM post p WHERE p.thread = $1" +
-						"ORDER BY p.path LIMIT $2",
-						params.ThreadID, params.Limit)
-				} else {
-					rows, err = p.db.Query("SELECT p.id, p.author, p.created, p.is_edited, p.message, p.parent, p.thread, p.forum " +
-						"FROM post p WHERE p.thread = $1 and (p.path > (SELECT p2.path from post p2 where p2.id = $2)) " +
-						"ORDER BY p.path LIMIT $3",
-						params.ThreadID, params.Since, params.Limit)
-				}
-			}*/
 	case "parent_tree":
 		if params.Desc {
 			if params.Since != 0 {
